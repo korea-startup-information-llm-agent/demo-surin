@@ -14,11 +14,49 @@
 - **LLM Fine-tuning** 용: [지식재산권법 LLM 사전학습 및 Instruction Tuning 데이터 (AI Hub)](https://www.aihub.or.kr/aihubdata/data/view.do?searchKeyword=%EC%A7%80%EC%8B%9D%EC%9E%AC&aihubDataSe=data&dataSetSn=71843)
 
 - **vectorDB 임베딩** 용: [국가중점기술 대응 특허 데이터 (AI Hub)](https://www.aihub.or.kr/aihubdata/data/view.do?searchKeyword=%EC%A7%80%EC%8B%9D%EC%9E%AC&aihubDataSe=data&dataSetSn=71739)
-  - 설명: 29,337건의 JSON 데이터 (CC_빅데이터_인공지능: 15,612건, CD_컴퓨팅_소프트웨어: 13,725건)
-  - 구성
+  - 설명: 29,337건의 특허 관련 JSON 데이터 (CC_빅데이터_인공지능: 15,612건, CD_컴퓨팅_소프트웨어: 13,725건)
+    - 특허에 대한 기본지식은 가지고 있어야 할 듯함.
+  - 가공 후 구성
     
     ```json
+    { 
+      // Metadata 용
+      "register_year": "등록연도",
+      "register_month": "등록월",
+      "register_day": "등록일",
+      "regitster_number": "등록번호",
+      
+      "application_year": "출원연도",
+      "application_month": "출원월",
+      "application_day": "출원일",
+      "application_number": "출원번호",
+      
+      "open_year": "공개연도",
+      "open_month": "공개월",
+      "open_day": "공개일",
+      "open_number": "공개번호",
+      
+      "ipc_section": "IPC-Section",
+      "ipc_class": "IPC-Class",
+      "ipc_subclass": "IPC-Subclass",
+      "ipc_maingroup": "IPC-MainGroup",
 
+      "large_no": "대분류코드",
+      "middle_no": "중분류코드",
+      "small_no": "소분류코드",
+
+      "country_code": "국가코드",
+      "document_id": "문헌키",
+      "document_type": "문헌타입",
+
+      // 임베딩용
+      "invention_title": "발명의명칭",
+      "inventor_name": "발명자명",
+      "applicant_name": "출원인명",
+      "claims": "청구항",
+      "abstract": "요약",
+      "keyword": "명칭, 요약, 청구항에서 추출한 키워드 6개 및 국가전략기술 12대 분야 대분류 1개 (리스트 형태로 저장: /로 split하기)"
+    }
     ```
 
 ## 3. RAG Pipeline
@@ -31,7 +69,8 @@
   - intfloat/multilingual-e5-large 
   - upstage embedding model (passage)
 
-- `국가중점기술 대응 특허 데이터`의 
+- `국가중점기술 대응 특허 데이터`의 raw 데이터의 **명칭**, **요약**, **청구항** 내용을 임베딩하고, 그 외의 raw, label 데이터의 내용을 metadata로 하여 vectorDB를 구성한다.
+  - `Langchain_postgres`를 사용하면 pgvector를 Langchain에서 쉽게 사용할 수 있다.
 
 ## 4. LLM Fine-tuning
 
