@@ -1,0 +1,20 @@
+[project]
+name = "demo-surin"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langchain>=0.3.27",
+    "langchain-community>=0.3.30",
+    "langchain-core>=0.3.76",
+    "langchain-tavily>=0.2.11",
+    "langchain-upstage>=0.7.3",
+    "langgraph>=0.6.8",
+    "numpy>=2.3.3",
+    "openai>=1.109.1",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.1",
+    "tavily-python>=0.7.12",
+    "tqdm>=4.67.1",
+]
