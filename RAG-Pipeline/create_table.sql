@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS public.documents (
 ALTER TABLE public.documents
   ADD COLUMN IF NOT EXISTS content text,
   ADD COLUMN IF NOT EXISTS metadata jsonb DEFAULT '{}'::jsonb,
-  ADD COLUMN IF NOT EXISTS embedding vector(4096),  -- 차원은 모델에 맞게 (일단 solar-passage 모델 사용)
   ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now(),
-  ADD COLUMN IF NOT EXISTS embedding_1024 vector(1024);
+  ADD COLUMN IF NOT EXISTS embedding_1024 vector(1024),  -- 차원은 모델에 맞게 (일단 solar-passage 모델 사용)
+  DROP COLUMN IF EXISTS embedding;
 
 -- 임베딩 검색 최적화
 CREATE INDEX IF NOT EXISTS idx_documents_embedding
