@@ -72,8 +72,40 @@
 - `국가중점기술 대응 특허 데이터`의 raw 데이터의 **명칭**, **요약**, **청구항** 내용을 임베딩하고, 그 외의 raw, label 데이터의 내용을 metadata로 하여 vectorDB를 구성한다.
   - `Langchain_postgres`를 사용하면 pgvector를 Langchain에서 쉽게 사용할 수 있다.
 
+- 완전 Postgresql@17을 install, pgvector를 install 해서 사용한다.  
+  *pgvector는 14, 17 버전에서 사용할 수 있다고 한다.
+  - postgre에 위의 JSON의 키값을 column name으로 해서 데이터를 넣어준다. 
+    - [ ] 함수화해서 자동화할 수 있도록 하기
+
+
 ## 4. LLM Fine-tuning
 
 - 사용 모델: [meta-llama/Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) or [meta-llama/Llama-3.2-3B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)
 
-- 파인튜닝 방법: LoRA
+- 파인튜닝 방법: LoRA, 지식재산권 질의응답 데이터를 이용해 파인튜닝하여 특화 모델을 만든다.
+  - 이때, 사용자 질문을 함수로 판단하거나 프롬프팅을 이용해 파인튜닝한 모델이 민감정보가 있는지 없는지 판단할 수 있도록 한다.
+    - 민감정보가 있다면, 그 부분을 마스킹하여
+
+## 5. Langgraph를 통한 Agent Workflow 만들기
+
+- 우리 서비스 사용 시 주의 사항으로, "법률 자문은 아니지만, 특허 출원 전이라면 가능한 한 원문 공개를 최소화하고, 필요 시 사전에 NDA 또는 사설 배포를 검토하세요." 이러한 내용을 꼭 첨부 해줘야 한다.
+
+### Models
+  
+  - LLM
+
+    1. Llama-3.2-3B
+    2. Solar-pro2 (API)
+
+  - Embedding Model
+
+    1. solar-passage (API)
+    2. draguke/bge-m3-ko (BAAI/bge-m3 의 한국어 특화 및 경량화 모델)
+
+### TOOLS
+  
+  1. retriever_tool: RAG를 위한
+  2. select_llm: 어떤 모델을 사용할지 판단
+  3. safeguard_tool: 민감정보를 내부 단어로 변경
+  4. load_to_table: 행렬을 표로 바꿔주는 
+  5. 
