@@ -19,6 +19,8 @@ dependencies = [
     "pyppeteer>=2.0.0",
     "python-dotenv>=1.1.1",
     "qdrant-client>=1.15.1",
+    "sentence-transformers>=5.1.1",
+    "streamlit>=1.50.0",
     "tavily-python>=0.7.12",
     "tqdm>=4.67.1",
 ]

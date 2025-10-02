@@ -8,10 +8,10 @@ class HFSpaceEmbeddingFunction:
     def __call__(self, text: str) -> list:
         response = requests.post(
             self.space_url,
-            json={"texts": text}  # 이 구조는 Space 구현에 따라 달라질 수 있음
+            json={"texts": [text]}  # 이 구조는 Space 구현에 따라 달라질 수 있음
         )
         response.raise_for_status()
-        return response.json()["embeddings"]  # 응답 형식에 따라 키가 다를 수 있음
+        return response.json()["embeddings"][0]  # 응답 형식에 따라 키가 다를 수 있음
 
 
 # 상태 정의하기

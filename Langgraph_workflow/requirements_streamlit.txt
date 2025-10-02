@@ -1,0 +1,26 @@
+# Streamlit 앱 실행을 위한 의존성
+streamlit>=1.28.0
+streamlit-chat>=0.1.1
+
+# 기존 워크플로우 의존성
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-community>=0.0.20
+langchain-upstage>=0.1.0
+langgraph>=0.0.40
+
+# 벡터 DB 및 검색
+qdrant-client>=1.7.0
+tavily-python>=0.3.0
+
+# LLM 클라이언트
+openai>=1.0.0
+
+# 로컬 모델 지원
+llama-cpp-python>=0.2.0
+
+# 기타 유틸리티
+python-dotenv>=1.0.0
+requests>=2.31.0
+numpy>=1.24.0
+pydantic>=2.0.0

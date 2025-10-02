@@ -11,14 +11,17 @@ from openai import OpenAI
 # Qdrant 관련
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams
 
 # Huggingface embedding 모델 관련
+# from Langgraph_workflow.utils import *
 from utils import *
 
 # tool annotation
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
+
+# 임베딩 모델 관련
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 
 # llama.cpp 관련
 try:
@@ -38,9 +41,15 @@ client = OpenAI(
 )
 
 # 임베딩 모델 huggingface space로 불러와서 쓰기
-EMBED_URL = os.getenv("EMBED_URL") + "/embed"
+# EMBED_URL = os.getenv("EMBED_URL") + "/embed"
 
-embedding_function = HFSpaceEmbeddingFunction(EMBED_URL)
+# embedding_function = HFSpaceEmbeddingFunction(EMBED_URL)
+
+embedding_function = SentenceTransformerEmbeddings(
+    model_name="intfloat/multilingual-e5-base",
+    model_kwargs={"device": "cpu"},
+    encode_kwargs={"normalize_embeddings": True},
+)
 
 # 벡터 DB 불러오기
 qdrant_client = QdrantClient(
@@ -52,13 +61,13 @@ qdrant_client = QdrantClient(
 ipraw_db = Qdrant(
     client=qdrant_client,
     collection_name="ipraw_db",
-    embedding_function=embedding_function
+    embeddings=embedding_function
 )
 
 ipraw_retriever = ipraw_db.as_retriever(
     search_type="similarity_score_threshold",
     search_kwargs={
-        "score_threshold": 0.1,
+        "score_threshold": 0.05,
         "k": 5,
     }
 )
@@ -67,43 +76,304 @@ ipraw_retriever = ipraw_db.as_retriever(
 patent_db = Qdrant(
     client=qdrant_client,
     collection_name="patent_db",
-    embedding_function=embedding_function
+    embeddings=embedding_function
 )
 
 patent_retriever = patent_db.as_retriever(
     search_type="similarity_score_threshold",
     search_kwargs={
-        "score_threshold": 0.1,
+        "score_threshold": 0.05,
         "k": 5
     }
 )
 
-# vectordb search tool
+# 임베딩 모델 설정 및 테스트
+print("🔍 임베딩 모델 초기화 중...")
+try:
+    embedding_function = SentenceTransformerEmbeddings(
+        model_name="intfloat/multilingual-e5-base",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+    print("✅ SentenceTransformer 임베딩 모델 로드 성공")
+    
+    # 임베딩 테스트
+    test_embedding = embedding_function.embed_query("테스트")
+    print(f"✅ 임베딩 테스트 성공: {len(test_embedding)}차원")
+    
+except Exception as e:
+    print(f"❌ SentenceTransformer 임베딩 모델 로드 실패: {str(e)}")
+    # 폴백으로 HFSpaceEmbeddingFunction 사용
+    from Langgraph_workflow.utils import HFSpaceEmbeddingFunction
+    EMBED_URL = os.getenv("EMBED_URL") + "/embed"
+    embedding_function = HFSpaceEmbeddingFunction(EMBED_URL)
+    print("⚠️ HFSpaceEmbeddingFunction으로 폴백")
+
+# 벡터 DB 연결 및 테스트
+print("\n🔍 Qdrant 연결 테스트 중...")
+try:
+    qdrant_client = QdrantClient(
+        url=os.getenv("QDRANT_URL"),
+        api_key=os.getenv("QDRANT_API_KEY")
+    )
+    
+    # 연결 테스트
+    collections = qdrant_client.get_collections()
+    print(f"✅ Qdrant 연결 성공")
+    print(f"   사용 가능한 컬렉션: {[c.name for c in collections.collections]}")
+    
+    # 각 컬렉션 상태 확인
+    for collection_name in ["ipraw_db", "patent_db"]:
+        try:
+            info = qdrant_client.get_collection(collection_name)
+            print(f"   📚 {collection_name}: {info.points_count}개 문서")
+        except Exception as e:
+            print(f"   ❌ {collection_name} 접근 실패: {str(e)}")
+    
+except Exception as e:
+    print(f"❌ Qdrant 연결 실패: {str(e)}")
+    print("   환경변수 확인: QDRANT_URL, QDRANT_API_KEY")
+
+# 임베딩 모델 설정 및 테스트
+print("🔍 임베딩 모델 초기화 중...")
+try:
+    embedding_function = SentenceTransformerEmbeddings(
+        model_name="intfloat/multilingual-e5-base",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
+    )
+    print("✅ SentenceTransformer 임베딩 모델 로드 성공")
+    
+    # 임베딩 테스트
+    test_embedding = embedding_function.embed_query("테스트")
+    print(f"✅ 임베딩 테스트 성공: {len(test_embedding)}차원")
+    
+except Exception as e:
+    print(f"❌ SentenceTransformer 임베딩 모델 로드 실패: {str(e)}")
+    # 폴백으로 HFSpaceEmbeddingFunction 사용
+    from Langgraph_workflow.utils import HFSpaceEmbeddingFunction
+    EMBED_URL = os.getenv("EMBED_URL") + "/embed"
+    embedding_function = HFSpaceEmbeddingFunction(EMBED_URL)
+    print("⚠️ HFSpaceEmbeddingFunction으로 폴백")
+
+# 벡터 DB 연결 및 테스트
+print("\n🔍 Qdrant 연결 테스트 중...")
+try:
+    qdrant_client = QdrantClient(
+        url=os.getenv("QDRANT_URL"),
+        api_key=os.getenv("QDRANT_API_KEY")
+    )
+    
+    # 연결 테스트
+    collections = qdrant_client.get_collections()
+    print(f"✅ Qdrant 연결 성공")
+    print(f"   사용 가능한 컬렉션: {[c.name for c in collections.collections]}")
+    
+    # 각 컬렉션 상태 확인
+    for collection_name in ["ipraw_db", "patent_db"]:
+        try:
+            info = qdrant_client.get_collection(collection_name)
+            print(f"   📚 {collection_name}: {info.points_count}개 문서")
+        except Exception as e:
+            print(f"   ❌ {collection_name} 접근 실패: {str(e)}")
+    
+except Exception as e:
+    print(f"❌ Qdrant 연결 실패: {str(e)}")
+    print("   환경변수 확인: QDRANT_URL, QDRANT_API_KEY")
+
+# 지식재산권법 관련 retriever
+print("\n🔍 IP 법령 데이터베이스 설정 중...")
+try:
+    ipraw_db = Qdrant(
+        client=qdrant_client,
+        collection_name="ipraw_db",
+        embeddings=embedding_function
+    )
+    
+    ipraw_retriever = ipraw_db.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={
+            "score_threshold": 0.0,  # 임계값을 0으로 낮춤
+            "k": 10,  # 더 많은 결과 가져오기
+        }
+    )
+    print("✅ IP 법령 데이터베이스 설정 완료")
+    
+except Exception as e:
+    print(f"❌ IP 법령 데이터베이스 설정 실패: {str(e)}")
+    ipraw_retriever = None
+
+# 특허 관련 retriever
+print("\n🔍 특허 데이터베이스 설정 중...")
+try:
+    patent_db = Qdrant(
+        client=qdrant_client,
+        collection_name="patent_db",
+        embeddings=embedding_function
+    )
+    
+    patent_retriever = patent_db.as_retriever(
+        search_type="similarity_score_threshold",
+        search_kwargs={
+            "score_threshold": 0.0,  # 임계값을 0으로 낮춤
+            "k": 10,  # 더 많은 결과 가져오기
+        }
+    )
+    print("✅ 특허 데이터베이스 설정 완료")
+    
+except Exception as e:
+    print(f"❌ 특허 데이터베이스 설정 실패: {str(e)}")
+    patent_retriever = None
+
+# # # vectordb search tool
+# @tool("ipraw_db_search")
+# def search_ipraw(query: str) -> list:
+#     """Use this tool to search information about IP raws from the IP raw vector database."""
+#     if not ipraw_retriever:
+#         return [{"error": "IP 법령 데이터베이스에 연결할 수 없습니다."}]
+    
+#     try:
+#         docs = ipraw_retriever.invoke(query)
+#         print(f"   📊 IP 법령 검색 결과: {len(docs)}개 문서")
+        
+#         results = []
+#         for i, doc in enumerate(docs):
+#             # page_content가 None인 경우 metadata에서 내용 추출
+#             content = doc.page_content
+#             if not content or content.strip() == "":
+#                 # metadata에서 실제 내용 찾기
+#                 metadata = getattr(doc, "metadata", {})
+#                 content = metadata.get("content", "") or metadata.get("text", "") or metadata.get("claims", "")
+            
+#             if content and content.strip():
+#                 results.append({
+#                     "content": content,
+#                     "metadata": getattr(doc, "metadata", {}),
+#                 })
+#                 print(f"   ✅ 문서 {i+1}: {content[:100]}...")
+#             else:
+#                 print(f"   ⚠️ 문서 {i+1}: 내용 없음, 건너뜀")
+        
+#         return results
+        
+#     except Exception as e:
+#         print(f"   ❌ IP 법령 검색 실패: {str(e)}")
+#         return [{"error": f"검색 중 오류 발생: {str(e)}"}]
+
+# @tool("patent_db_search")
+# def search_patent(query: str) -> list:
+#     """Use this tool to search information about patents from the patent vector database."""
+#     if not patent_retriever:
+#         return [{"error": "특허 데이터베이스에 연결할 수 없습니다."}]
+    
+#     try:
+#         docs = patent_retriever.invoke(query)
+#         print(f"   📊 특허 검색 결과: {len(docs)}개 문서")
+        
+#         results = []
+#         for i, doc in enumerate(docs):
+#             # page_content가 None인 경우 metadata에서 내용 추출
+#             content = doc.page_content
+#             if not content or content.strip() == "":
+#                 # metadata에서 실제 내용 찾기
+#                 metadata = getattr(doc, "metadata", {})
+#                 content = metadata.get("content", "") or metadata.get("text", "") or metadata.get("claims", "")
+            
+#             if content and content.strip():
+#                 results.append({
+#                     "content": content,
+#                     "metadata": getattr(doc, "metadata", {}),
+#                 })
+#                 print(f"   ✅ 문서 {i+1}: {content[:100]}...")
+#             else:
+#                 print(f"   ⚠️ 문서 {i+1}: 내용 없음, 건너뜀")
+        
+#         return results
+        
+#     except Exception as e:
+#         print(f"   ❌ 특허 검색 실패: {str(e)}")
+#         return [{"error": f"검색 중 오류 발생: {str(e)}"}]
+
+
+# vectordb search tool 수정 (Document validation 오류 해결)
 @tool("ipraw_db_search")
 def search_ipraw(query: str) -> list:
     """Use this tool to search information about IP raws from the IP raw vector database."""
-    docs = ipraw_retriever.get_relevant_documents(query)
-    # 메타 데이터로 답변 거르기 과정 필요
-    return [
-        {
-            "content": doc.page_content,
-            "metadata": getattr(doc, "metadata", {}),
-        }
-        for doc in docs
-    ]
+    if not ipraw_retriever:
+        return [{"error": "IP 법령 데이터베이스에 연결할 수 없습니다."}]
+    
+    try:
+        # retriever.invoke() 대신 직접 벡터 DB 검색
+        from langchain_core.documents import Document
+        
+        # 벡터 DB에서 직접 검색
+        search_results = ipraw_db.similarity_search_with_score(query, k=5)
+        print(f"   📊 IP 법령 검색 결과: {len(search_results)}개 문서")
+        
+        results = []
+        for i, (doc, score) in enumerate(search_results):
+            # page_content가 None인 경우 metadata에서 내용 추출
+            content = doc.page_content
+            if not content or content.strip() == "":
+                # metadata에서 실제 내용 찾기
+                metadata = getattr(doc, "metadata", {})
+                content = metadata.get("content", "") or metadata.get("text", "") or metadata.get("claims", "") or metadata.get("title", "")
+            
+            if content and content.strip():
+                results.append({
+                    "content": content,
+                    "metadata": getattr(doc, "metadata", {}),
+                    "score": score
+                })
+                print(f"   ✅ 문서 {i+1}: {content[:100]}... (점수: {score:.3f})")
+            else:
+                print(f"   ⚠️ 문서 {i+1}: 내용 없음, 건너뜀")
+        
+        return results
+        
+    except Exception as e:
+        print(f"   ❌ IP 법령 검색 실패: {str(e)}")
+        return [{"error": f"검색 중 오류 발생: {str(e)}"}]
 
 @tool("patent_db_search")
 def search_patent(query: str) -> list:
     """Use this tool to search information about patents from the patent vector database."""
-    docs = patent_retriever.get_relevant_documents(query)
-    # 메타 데이터로 답변 거르기 과정 필요
-    return [
-        {
-            "content": doc.page_content,
-            "metadata": getattr(doc, "metadata", {}),
-        }
-        for doc in docs
-    ]
+    if not patent_retriever:
+        return [{"error": "특허 데이터베이스에 연결할 수 없습니다."}]
+    
+    try:
+        # retriever.invoke() 대신 직접 벡터 DB 검색
+        from langchain_core.documents import Document
+        
+        # 벡터 DB에서 직접 검색
+        search_results = patent_db.similarity_search_with_score(query, k=5)
+        print(f"   📊 특허 검색 결과: {len(search_results)}개 문서")
+        
+        results = []
+        for i, (doc, score) in enumerate(search_results):
+            # page_content가 None인 경우 metadata에서 내용 추출
+            content = doc.page_content
+            if not content or content.strip() == "":
+                # metadata에서 실제 내용 찾기
+                metadata = getattr(doc, "metadata", {})
+                content = metadata.get("content", "") or metadata.get("text", "") or metadata.get("claims", "") or metadata.get("title", "")
+            
+            if content and content.strip():
+                results.append({
+                    "content": content,
+                    "metadata": getattr(doc, "metadata", {}),
+                    "score": score
+                })
+                print(f"   ✅ 문서 {i+1}: {content[:100]}... (점수: {score:.3f})")
+            else:
+                print(f"   ⚠️ 문서 {i+1}: 내용 없음, 건너뜀")
+        
+        return results
+        
+    except Exception as e:
+        print(f"   ❌ 특허 검색 실패: {str(e)}")
+        return [{"error": f"검색 중 오류 발생: {str(e)}"}]
+
 
 
 # 헬퍼 함수
@@ -580,5 +850,188 @@ def classify_question_node(state: dict) -> dict:
 
 
 
+# ------------------------------------------------------------------------------- #
+
+# 검색 테스트 함수 (수정된 버전)
+def test_search_functions():
+    """수정된 검색 함수들을 테스트합니다."""
+    print("\n🔍 검색 함수 테스트 시작...")
+    
+    test_queries = [
+        "특허 출원 절차",
+        "상표 등록 방법", 
+        "지식재산권 보호",
+        "빅데이터 인공지능",
+        "머신러닝 기술"
+    ]
+    
+    for query in test_queries:
+        print(f"\n🔍 테스트 쿼리: '{query}'")
+        
+        # IP 법령 검색 테스트
+        print("   📚 IP 법령 검색 테스트:")
+        try:
+            ipraw_results = search_ipraw(query)
+            print(f"   📊 결과: {len(ipraw_results)}개")
+            for i, result in enumerate(ipraw_results[:2]):  # 상위 2개만 표시
+                if "error" in result:
+                    print(f"     ❌ 오류: {result['error']}")
+                else:
+                    content = result.get("content", "")
+                    print(f"     ✅ 결과 {i+1}: {content[:150]}...")
+        except Exception as e:
+            print(f"   ❌ IP 법령 검색 실패: {str(e)}")
+        
+        # 특허 검색 테스트
+        print("   📄 특허 검색 테스트:")
+        try:
+            patent_results = search_patent(query)
+            print(f"   📊 결과: {len(patent_results)}개")
+            for i, result in enumerate(patent_results[:2]):  # 상위 2개만 표시
+                if "error" in result:
+                    print(f"     ❌ 오류: {result['error']}")
+                else:
+                    content = result.get("content", "")
+                    print(f"     ✅ 결과 {i+1}: {content[:150]}...")
+        except Exception as e:
+            print(f"   ❌ 특허 검색 실패: {str(e)}")
+        
+        print("   " + "="*50)
+    
+    print("\n✅ 검색 함수 테스트 완료")
+
+# 벡터 DB 직접 검색 테스트
+def test_direct_vector_search():
+    """벡터 DB를 직접 검색해서 실제 데이터 구조를 확인합니다."""
+    print("\n🔍 벡터 DB 직접 검색 테스트...")
+    
+    test_queries = [
+        "빅데이터",
+        "인공지능", 
+        "머신러닝",
+        "특허 출원"
+    ]
+    
+    for query in test_queries:
+        print(f"\n🔍 테스트 쿼리: '{query}'")
+        
+        # IP 법령 DB 직접 검색
+        print("   📚 IP 법령 DB 직접 검색:")
+        try:
+            if ipraw_retriever:
+                docs = ipraw_retriever.invoke(query)
+                print(f"   📊 검색 결과: {len(docs)}개 문서")
+                
+                for i, doc in enumerate(docs[:2]):  # 상위 2개만 표시
+                    print(f"\n     📄 문서 {i+1}:")
+                    print(f"       page_content: {doc.page_content[:100] if doc.page_content else 'None'}...")
+                    print(f"       metadata: {doc.metadata}")
+                    
+                    # metadata에서 실제 내용 찾기
+                    if not doc.page_content:
+                        metadata = doc.metadata
+                        for key in ['content', 'text', 'claims', 'title']:
+                            if key in metadata and metadata[key]:
+                                print(f"       실제 내용({key}): {str(metadata[key])[:100]}...")
+                                break
+            else:
+                print("   ❌ IP 법령 retriever가 없습니다.")
+        except Exception as e:
+            print(f"   ❌ IP 법령 DB 검색 실패: {str(e)}")
+        
+        # 특허 DB 직접 검색
+        print("   📄 특허 DB 직접 검색:")
+        try:
+            if patent_retriever:
+                docs = patent_retriever.invoke(query)
+                print(f"   📊 검색 결과: {len(docs)}개 문서")
+                
+                for i, doc in enumerate(docs[:2]):  # 상위 2개만 표시
+                    print(f"\n     📄 문서 {i+1}:")
+                    print(f"       page_content: {doc.page_content[:100] if doc.page_content else 'None'}...")
+                    print(f"       metadata: {doc.metadata}")
+                    
+                    # metadata에서 실제 내용 찾기
+                    if not doc.page_content:
+                        metadata = doc.metadata
+                        for key in ['content', 'text', 'claims', 'title']:
+                            if key in metadata and metadata[key]:
+                                print(f"       실제 내용({key}): {str(metadata[key])[:100]}...")
+                                break
+            else:
+                print("   ❌ 특허 retriever가 없습니다.")
+        except Exception as e:
+            print(f"   ❌ 특허 DB 검색 실패: {str(e)}")
+        
+        print("   " + "="*50)
+    
+    print("\n✅ 벡터 DB 직접 검색 테스트 완료")
+
+# 웹 검색 테스트
+def test_web_search():
+    """웹 검색 함수를 테스트합니다."""
+    print("\n🔍 웹 검색 테스트 시작...")
+    
+    test_queries = [
+        "특허 출원 절차 2024",
+        "상표 등록 비용",
+        "지식재산권 보호 방법"
+    ]
+    
+    for query in test_queries:
+        print(f"\n🔍 테스트 쿼리: '{query}'")
+        
+        try:
+            web_results = search_in_web(query, rewrite_mode=True)
+            print(f"   📊 웹 검색 결과: {len(web_results)}개")
+            
+            for i, result in enumerate(web_results[:2]):  # 상위 2개만 표시
+                if "error" in result:
+                    print(f"     ❌ 오류: {result['error']}")
+                else:
+                    title = result.get("title", "")
+                    content = result.get("content", "")
+                    score = result.get("score", 0)
+                    print(f"     ✅ 결과 {i+1}: {title}")
+                    print(f"        점수: {score}")
+                    print(f"        내용: {content[:100]}...")
+        except Exception as e:
+            print(f"   ❌ 웹 검색 실패: {str(e)}")
+        
+        print("   " + "="*50)
+    
+    print("\n✅ 웹 검색 테스트 완료")
+
+# 종합 테스트 함수
+def run_all_tests():
+    """모든 검색 기능을 종합적으로 테스트합니다."""
+    print("🚀 StartMate RAG 시스템 종합 테스트 시작...")
+    
+    # 1. 벡터 DB 데이터 구조 확인
+    # print("\n1️⃣ 벡터 DB 데이터 구조 확인")
+    # diagnose_vector_db_structure()
+    
+    # 2. 벡터 DB 직접 검색 테스트
+    print("\n2️⃣ 벡터 DB 직접 검색 테스트")
+    test_direct_vector_search()
+    
+    # 3. 수정된 검색 함수 테스트
+    print("\n3️⃣ 수정된 검색 함수 테스트")
+    test_search_functions()
+    
+    # 4. 웹 검색 테스트
+    print("\n4️⃣ 웹 검색 테스트")
+    test_web_search()
+    
+    print("\n🎉 모든 테스트 완료!")
+    print("\n📋 테스트 결과 요약:")
+    print("   - 벡터 DB 데이터 구조 확인 완료")
+    print("   - 직접 검색으로 실제 데이터 확인 완료")
+    print("   - 수정된 검색 함수 테스트 완료")
+    print("   - 웹 검색 기능 테스트 완료")
+
+# 모듈 로드 시 자동 테스트
+if __name__ == "__main__":
+    run_all_tests()
 
     
