@@ -640,14 +640,13 @@ def analyze_question(user_question: str) -> dict:
     
     extracted_info = {
         "ip_topic": None,                  # 질문 주제 (e.g., "특허 출원", "상표 등록", "디자인권", "저작권", "IP 전략")
-        "is_about_patent": False,         # 특허 관련 여부
-        "is_about_trademark": False,      # 상표 관련 여부
-        "is_about_copyright": False,      # 저작권 관련 여부
-        "is_about_design": False,         # 디자인권 관련 여부
+        "is_about_patent": False,          # 특허 관련 여부
+        "is_about_trademark": False,       # 상표 관련 여부
+        "is_about_copyright": False,       # 저작권 관련 여부
+        "is_about_design": False,          # 디자인권 관련 여부
 
-        "question_intent": None,          # 의도 (e.g., "출원 절차 문의", "출원 가능성 판단", "비용 문의", "권리 보호 범위", "침해 여부", "기존 특허 조사")
-
-        "needs_professional_help": False, # 전문가 상담이 필요한 복잡한 질문인지
+        "question_intent": None,           # 의도 (e.g., "출원 절차 문의", "출원 가능성 판단", "비용 문의", "권리 보호 범위", "침해 여부", "기존 특허 조사")
+ # 전문가 상담이 필요한 복잡한 질문인지
         "jurisdiction": None,             # 국가/관할 구역 (e.g., "대한민국", "미국", "PCT", "유럽")
 
         "technology_field": None,         # 기술 분야 (e.g., "AI", "헬스케어", "핀테크", "화장품")
