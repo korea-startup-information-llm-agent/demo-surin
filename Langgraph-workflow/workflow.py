@@ -33,7 +33,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_upstage import ChatUpstage
 
 # LangGraph
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
@@ -62,7 +62,7 @@ load_dotenv(verbose=True)
 print("✅ All imports successful!")
 
 # 환경 변수 설정
-os.environ["UPSTAGE_API_KEY"] = settings.UPSTAGE_API_KEY
+os.environ["UPSTAGE_API_KEY"] = os.getenv("UPSTAGE_API_KEY")
 
 # 로컬 경량 모델 설정
 local_model = ""
@@ -71,13 +71,22 @@ local_model = ""
 large_llm = ChatUpstage(model="solar-pro2", temperature=0)
 
 # 도구 목록
-TOOLS = [search_ipraw, search_patent, search_in_web]
+TOOLS = [analyze_question, search_ipraw, search_patent, search_in_web]
 
 # llm에 TOOLS 바인딩
 llm_with_tools = large_llm.bind_tools(TOOLS)
 
 # 챗봇 함수 정의 - 인천 토박이 친구 페르소나 적용
-async def chatbot(state: State):
+def chatbot(state: State):
+    # 질문 분석 결과 확인
+    question_analysis = state.get("question_analysis", {})
+
+    # 도구 결과 확인
+    analyze_question_results = state.get("analyze_question_results", [])
+    ipraw_results = state.get("ipraw_results", [])
+    patent_results = state.get("patent_results", [])
+    search_in_web_results = state.get("search_in_web_results", [])
+
     # 시스템 메시지에 페르소나 설정
     system_message = SystemMessage(
         content=f"""
@@ -111,8 +120,11 @@ async def chatbot(state: State):
     # 시스템 메시지 추가
     messages_with_system = [system_message] + state["messages"]
     
-    response = await llm_with_tools.ainvoke(messages_with_system)
+    response = llm_with_tools.invoke(messages_with_system)
 
+    if hasattr(response, "tool_calls") and response.tool_calls:
+        for tool_call in response.tool_calls:
+            print(f"도구 호출: {tool_call['name']}")
     # # 디버깅
     # # print(f"[DEBUG] LLM 응답: {response}")
     # logger.info(f"[DEBUG] LLM 응답: {response}")
@@ -130,44 +142,159 @@ async def chatbot(state: State):
     # 메시지 호출 및 반환
     return {"messages": [response]}
 
+
+def tool_call_or_end(state: State):
+
+    messages = state["messages"]
+    last_message = messages[-1]
+    
+    if not last_message.tool_calls:
+        return "end"
+    else:
+        return "tool_call_needed"
+
+
+tools_by_name = {tool.name: tool for tool in TOOLS}
+
+def tool_node(state: State) -> Dict[str, Any]:
+    """Execute tools and update state with structured results."""
+    
+    outputs = []
+    update = {"messages": []}
+
+    # 마지막 메시지에 tool_calls가 있다면 이름과 args를 가져와서 결과를 반환한다.
+    for tool_call in state["messages"][-1].tool_calls:
+        tool_result = None
+        for tool in TOOLS:
+            if tool.name == tool_call["name"]:
+                tool_result = tool.invoke(tool_call["args"])
+                break
+        
+        outputs.append(
+            ToolMessage(
+                content=json.dumps(tool_result) if tool_result else "Tool not found",
+                tool_call_id=tool_call["id"],
+            )
+        )
+
+        if tool_call["name"] == "analyze_question":
+            analyze_question_results = tool_result if isinstance(tool_result, list) else []
+            update["analyze_question_results"] = analyze_question_results
+            print(f"📚 analyze_question completed with {len(analyze_question_results)} results")
+
+        if tool_call["name"] == "search_ipraw": # tool_call이 search_ipraw인 경우
+            ipraw_results = tool_result if isinstance(tool_result, list) else []
+            update["ipraw_results"] = ipraw_results # ipraw_results를 업데이트 해줍니다.
+            print(f"📚 search_ipraw completed with {len(ipraw_results)} results")
+        
+        if tool_call["name"] == "search_patent": # tool_call이 search_patent인 경우
+            patent_results = tool_result if isinstance(tool_result, list) else []
+            update["patent_results"] = patent_results # patent_results를 업데이트 해줍니다.
+            print(f"📚 search_patent completed with {len(patent_results)} results")
+
+        if tool_call["name"] == "search_in_web": # tool_call이 web_search인 경우
+            web_results = tool_result if isinstance(tool_result, list) else []
+            update["search_in_web_results"] = web_results # web_search_raw_results를 업데이트 해줍니다.
+            print(f"🌐 Web search completed with {len(web_results)} results")
+    
+    update["messages"] = outputs # 위에서 정의한 outputs를 업데이트 해줍니다.
+    return update
+
+
 # 그래프 생성 함수
-async def make_graph():
+def make_graph():
 
     graph_builder = StateGraph(State)
 
-    # 도구 노드 설정
-    tool_node = ToolNode(tools=TOOLS)
-
     # 노드 추가
-    graph_builder.add_node("analyze", classify_question_node)
+    graph_builder.add_node("classify_question", classify_question_node)
     graph_builder.add_node("tools", tool_node)
     graph_builder.add_node("chatbot", chatbot)
 
+    # 엣지 추가하기
+    graph_builder.add_edge(START, "classify_question")  # 시작 시 질문 분석부터
+    
     # 조건부 엣지 추가
-    graph_builder.add_conditional_edges(
-        "analyze",
-        lambda x: "chatbot",  # 분석 후 항상 챗봇으로
-        {"chatbot": "chatbot"}
+    graph_builder.add_edge(
+        "classify_question", "chatbot",  # 분석 후 항상 챗봇으로
     )
 
     graph_builder.add_conditional_edges(
         "chatbot",
-        # select_next_node,
-        {"tools": "tools", "analyze": "analyze", END: END}
+        tool_call_or_end,
+        {"tool_call_needed": "tools", "end": END}
     )
-
-    # 엣지 추가하기
-    graph_builder.add_edge(START, "analyze")  # 시작 시 질문 분석부터
-
-    graph_builder.add_conditional_edges(
-        "tools",
-        # after_tools_router,
-        {"tools": "tools", "chatbot": "chatbot"}
-    )
+    
+    memory = InMemorySaver()
 
     # 컴파일
     graph = \
     graph_builder.compile(
-        # checkpointer=checkpointer,
+        checkpointer=memory,
     )
     return graph
+
+
+
+if __name__ == "__main__":
+    graph = make_graph()
+    print("그래프 컴파일 완료")
+
+    
+
+    config = RunnableConfig(
+        configurable= {
+            "thread_id": "test"
+        }
+    )
+
+    print("="*100)
+    print("StartMate에 오신 것을 환영합니다!")
+
+    
+    while True:
+        user_input = input("질문: ")
+
+        if user_input.lower() in ["종료", "quit", "exit", "bye"]:
+            print("StartMate를 종료합니다.")
+            break
+
+        # 빈 입력 처리하기
+        if not user_input.strip():
+            print("질문을 입력해주세요.")
+            continue
+
+        print("답변을 생성중입니다... 🤖\n")
+
+        # 사용자의 메시지를 HumanMessage로 변환
+        human_message = HumanMessage(content=user_input)
+
+        # 그래프 실행
+        try:
+            for event in graph.stream(
+                {"messages": [human_message]},
+                config=config,
+                stream_mode="updates"
+            ):
+                if "tools" in event:
+                    tool_messages = event["tools"]["messages"]
+                    for tool_message in tool_messages:
+                        if hasattr(tool_message, "tool_calls") and tool_message.tool_calls:
+                            for tool_call in tool_message.tool_calls:
+                                print(f"도구 호출: {tool_call['name']}")
+                                print(f"도구 인수: {tool_call['args']}")
+
+                        elif hasattr(tool_message, "content"):
+                            print(f"도구 응답: {tool_message.content[:100]}")
+
+                if "chatbot" in event:
+                    chatbot_response = event["chatbot"]["messages"][-1]
+                    if hasattr(chatbot_response, "content"):
+                        print("답변: ",chatbot_response.content)
+                        print("-" * 50)
+
+        except Exception as e:
+            print(f"오류가 발생했습니다: {e}")
+            continue
+            
+    

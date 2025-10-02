@@ -8,19 +8,24 @@ class HFSpaceEmbeddingFunction:
     def __call__(self, text: str) -> list:
         response = requests.post(
             self.space_url,
-            json={"inputs": text}  # 이 구조는 Space 구현에 따라 달라질 수 있음
+            json={"texts": text}  # 이 구조는 Space 구현에 따라 달라질 수 있음
         )
         response.raise_for_status()
-        return response.json()["embedding"]  # 응답 형식에 따라 키가 다를 수 있음
+        return response.json()["embeddings"]  # 응답 형식에 따라 키가 다를 수 있음
 
 
 # 상태 정의하기
-from typing import Annotated, TypedDict
+from typing import Annotated, TypedDict, Sequence
 from langgraph.graph.message import add_messages
+from langchain_core.messages import BaseMessage
 
 class State(TypedDict):
-    messages: Annotated[list, add_messages]  # LLM과의 대화 메시지
+    messages: Annotated[Sequence[BaseMessage], add_messages]  # LLM과의 대화 메시지
     question_analysis: dict                  # LLM이 분석한 질문 정보
+    analyze_question_results: list                   # analyze_question 도구 결과
+    ipraw_results: list                   # search_ipraw 도구 결과
+    patent_results: list                   # search_patent 도구 결과
+    search_in_web_results: list                   # search_in_web 도구 결과
 
 
 
