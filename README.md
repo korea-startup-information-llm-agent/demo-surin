@@ -64,7 +64,7 @@
 - vectorDB: `pg-vector`
   - 관련 깃허브 링크: https://github.com/pgvector/pgvector-python
 
-- embedding model
+- embedding model 후보
   - BAAI/bge-m3
   - intfloat/multilingual-e5-large 
   - upstage embedding model (passage)
@@ -82,7 +82,7 @@
 
 - 사용 모델: [meta-llama/Llama-3.2-1B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct) or [meta-llama/Llama-3.2-3B-Instruct](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct)
 
-- 파인튜닝 방법: LoRA, 지식재산권 질의응답 데이터를 이용해 파인튜닝하여 특화 모델을 만든다.
+- 파인튜닝 방법: LoRA, 지식재산권 **질의응답 데이터**를 이용해 파인튜닝하여 특화 모델을 만든다.
   - 이때, 사용자 질문을 함수로 판단하거나 프롬프팅을 이용해 파인튜닝한 모델이 민감정보가 있는지 없는지 판단할 수 있도록 한다.
     - 민감정보가 있다면, 그 부분을 마스킹하여
 
@@ -108,4 +108,10 @@
   2. select_llm: 어떤 모델을 사용할지 판단
   3. safeguard_tool: 민감정보를 내부 단어로 변경
   4. load_to_table: 행렬을 표로 바꿔주는 
-  5. 
+
+
+
+---
+
+
+
