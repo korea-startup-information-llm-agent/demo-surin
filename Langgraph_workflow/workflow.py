@@ -7,7 +7,6 @@
 # Standard Library
 import os
 import json
-import csv
 from datetime import datetime
 from collections import Counter
 
@@ -18,7 +17,6 @@ from tavily import TavilyClient
 from openai import OpenAI
 
 # LangChain Core
-from langchain_core.documents import Document
 from langchain_core.messages import (
     BaseMessage, 
     HumanMessage, 
@@ -26,7 +24,6 @@ from langchain_core.messages import (
     SystemMessage, 
     ToolMessage
 )
-from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 
 # LangChain Upstage
@@ -71,7 +68,7 @@ local_model = ""
 large_llm = ChatUpstage(model="solar-pro2", temperature=0)
 
 # 도구 목록
-TOOLS = [analyze_question, search_ipraw, search_patent, search_in_web]
+TOOLS = [analyze_question, search_in_web, search_patent_db]
 
 # llm에 TOOLS 바인딩
 llm_with_tools = large_llm.bind_tools(TOOLS)

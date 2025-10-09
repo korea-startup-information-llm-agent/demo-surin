@@ -1,9 +1,7 @@
 .DS_Store
-<<<<<<< HEAD
-dataset
-.env
-=======
 __pycache__
+
+.venv
+
 .env
 dataset
->>>>>>> c80f2f8e1c4c5f9b23364b63ed8dc6f91d746261
